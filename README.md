@@ -1,5 +1,5 @@
 # Computer Vision Lab
-## Submitters: </br><br> Sameer Najjar, ID: </br> Rami Sima'an, ID: 212272751
+## Submitters: </br><br> Sameer Najjar, ID: 212186613 </br> Rami Sima'an, ID: 212272751
 
 
 ## Introduction
@@ -17,7 +17,7 @@ By “reduce,” we mean we use the measurement to nudge the model’s outputs t
 1. Using generated samples from a fixed feature space (SimpleMNISTFeatureNet).
 2. Reference (train) subset: Balanced mini-set from the train data (same count per digit/class).
 3. Controlled test variants ($D_1$->$D_{10}$): 1,000 samples each, increasing diversity:
-    - $D_1$: 1 digit, 1 image duplicated.
+	- $D_1$: 1 digit, 1 image duplicated.
 	- $D_2$: 1 digit, as many distinct as possible (pad if needed).
 	- $D_3–D_8$: 2,3,4,5,6,8 digits — balanced and distinct.
 	- $D_9$: 10 digits — balanced, with replacement (duplicates allowed).
@@ -31,14 +31,14 @@ We plot OT/FID/MMD between each controlled test set $D_1\ldots D_{10}$ and the b
 <img src="Images/mmd_train_vs_var.png" width="60%">
 <img src="Images/fid_train_vs_var.png" width="60%">
 
-### Coverage (GEN vs D_1–D_{10}):
+### Coverage (GEN vs $D_1$, ..., $D_{10}$):
 
 Sinkhorn OT between 1k generated samples and controlled test sets with rising diversity (${D_1}$ worst → $D_{10}$ best) in the SimpleMNISTFeatureNet embedding. Lower = better; the downward trend shows broader coverage. A tiny $D_9$ < $D_10$ dip is expected since $D_9$ allows duplicates (easier to match).
 
 <img src="Images/ot_gen_var.png" width="60%">
 
 
-### Precision (Train vs Blurred Test — $D_1$-$D_{10}$)
+### Precision (Train vs Blurred Test — $D_1$->$D_{10}$)
 Distances (OT, FID) between a 1k train batch and blurred test variants $D_1\ldots D_{10}$ (blur strength ↑). Lower = better. Both metrics rise as blur increases; FID reacts earlier/steeper, OT grows smoothly.
 
 Effect of Gaussian blur σ (Train vs Test).
@@ -46,11 +46,60 @@ Same experiment but x-axis is the actual blur $\sigma$. Lower = better. Metrics 
 
 <img src="Images/train_var_blur.png" width="60%">
 
-### Precision (Generated vs Blurred Test — $D_1$-$D_{10}$)
+### Precision (Generated vs Blurred Test — $D_1$->$D_{10}$)
 <img src="Images/gen_var_blur.png" width="60%">
 
 
 ### Train/Test Mixture Sweep (GEN vs $D_0\ldots D_{10}$).
-Each $D_k$ is a 1k-image mix with $k\times100$ train and $(10-k)\times100$ test images (so $D_0$=all test, $D_{10}$=all train). We measure OT and FID between Generated (1k) and each mixture. Lower = better.
+Each $D_k$ is a 1k-image mix with $k\times100$ train and $(10-k)\times100$ test images (so $D_0$=all test, $D_{10}$=all train). We measure OT and FID between Generated (1k) and each mixture. Lower = better.  
 <img src="Images/gen_train_test.png" width="60%"></br>
 The generator shows no strong train/test bias—it’s similarly aligned to both. The slight dip may indicate a tiny train preference or just sampling noise 
+
+## Active Phase
+### We incorporate OT directly into the training loss function to guide the model toward the true distribution:
+- **Loss Function**: $L$ = $L_ϵ$ + $λ_{ot}$ * $L_{ot}$  
+- **Parameters Tested**:  
+  - $\lambda_{\text{OT}} \in \{0.1, 0.25\}$  
+  - Blur $\sigma \in \{0.35, 0.75\}$  
+  - Wasserstein norm $p \in \{1, 2\}$  
+- **Baseline**: Model trained without OT loss (same architecture/optimization).  
+
+### **Critical Finding**:  
+ Optimal OT hyperparameters ($\lambda=0.1, \sigma=0.35, p=2$) yield:  
+ - **50%+ reduction** in OT distance vs. baseline  
+ - **Superior** MMD/FID scores for both train and test data  
+ - **Visually clearer** samples (see below).  
+### **our results**:
+- Validation curves are almost identical to the baseline, indicating that adding the OT term does not materially hurt the denoising MSE objective.
+<img src="Images/val_loss.png" width="60%">  
+
+- Tn term of the ot between the generated and train set we see a huge deffrence and we can clearly see that the distance for the models that uses ot in the loss is more than half the disctance compared to the original model.  
+<img src="Images/ot_gen_train.png" width="60%">   
+
+- We observe the same improvement when comparing to the held-out test set: the OT-trained model produces samples significantly closer to real data.  
+<img src="Images/ot_gen_test.png" width="60%">  
+
+- MMD reflects a strong dependence on the OT settings:
+
+  - A moderate configuration (e.g., lambda_ot = 0.1, blur = 0.35, p = 2) improves markedly over the baseline.  
+  -  An aggressive configuration (e.g., lambda_ot = 0.25, blur = 0.75) can over-regularize and underperform the baseline.  
+<img src="Images/mmd_train_gen.png" width="60%">  
+<img src="Images/mdd_gen_test.png" width="60%">  
+
+-  FID — same pattern as MMD.
+   - FID tracks the MMD findings: moderate OT improves sample quality, while overly strong OT can degrade it.  
+<img src="Images/fid_train_gen.png" width="60%">  
+<img src="Images/fid_gen_test.png" width="60%">   
+
+
+### Sample Comparison  
+finnaly if we comapre the generated samples directly between the models that usses ot in the loss and the original model we can see a huge improvment in the samples.
+| Original Model | Model w/ OT Loss ($\lambda=0.1$) |  
+|----------------|----------------------------------|  
+| ![Original](Images/base.png ) | ![OT Model](Images/with_ot.png) |  
+
+
+##  Why This Matters  
+- **Beyond FID/MMD**: OT reveals hidden issues (class imbalance, missing modes) that standard metrics miss.  
+- **Practical Impact**: OT loss directly improves sample diversity and fidelity without sacrificing training stability.  
+- **Scalable**: Framework applies to any generative model (GANs, VAEs, Diffusion).  
