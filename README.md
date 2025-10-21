@@ -116,4 +116,9 @@ finnaly if we comapre the generated samples directly between the models that uss
 - **Why**: Train-time OT shrinks the average gap, but can’t remove all mismatch; sample-time OT acts as test-time alignment, gently pulling each step toward real data and recovering missed modes—without hurting the denoising objective.
 - **Best settings (your runs)**: moderate OT (λ=0.1, σ=0.35, p=2, small ot_scale) beats both baseline and overly strong OT.
 - **Cost**: small extra compute (a few pixel-space grads per step); pays off in quality.
- 
+
+ ### Code
+ In `ot_lab.ipnyb` notebook you can view these three main parts of the project:
+ - First part is training base diffision model as it is.
+ - Second part is **Passive Phase**: In this part you can view all passive experiments that we did and shared during each meeting.
+ - Third part is **Active Phase** You can view the code that is used for training our OT-model with new loss and new ot-guided sampling.
